@@ -13,7 +13,7 @@ app.use(express.json());
 app.use(express.static("public"));
 
 /* Firebase Admin Setup */
-const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
+const serviceAccount = JSON.parse("./serviceAccountKey.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
