@@ -3,7 +3,7 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const admin = require("firebase-admin");
 
-const app = express();
+const app = express(); 
 
 /* Middlewares */
 
