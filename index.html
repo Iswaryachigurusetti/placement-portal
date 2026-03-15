@@ -105,67 +105,37 @@
             // Check if already logged in
             checkAuthState();
         });
+async function handleLogin(event) {
+    event.preventDefault();
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const role = document.getElementById("role").value;
 
-        // 🔥 MAIN LOGIN FUNCTION - FIXED
-        async function handleLogin(event) {
-            event.preventDefault(); // ✅ CRITICAL: Prevent form submission
-            
-            const username = document.getElementById("username").value.trim();
-            const password = document.getElementById("password").value.trim();
-            const role = document.getElementById("role").value;
+    if (!username || !password || !role) {
+        showLoginError("Please fill all fields");
+        return;
+    }
 
-            if (!username || !password || !role) {
-                showLoginError("Please fill all fields");
-                return;
-            }
+    const email = username.includes("@") ? username : username + "@college.edu";
 
-            const loginBtn = document.getElementById("loginBtn");
-            const btnText = loginBtn.querySelector(".btn-text");
-            const btnLoading = loginBtn.querySelector(".btn-loading");
+    try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        currentUser = userCredential.user.email;
+        currentRole = role;
 
-            // Show loading state
-            btnText.style.display = "none";
-            btnLoading.style.display = "inline";
-            loginBtn.disabled = true;
+        localStorage.setItem('currentUser', JSON.stringify({
+            username: currentUser,
+            role: currentRole,
+            timestamp: Date.now()
+        }));
 
-            try {
-                // Convert username to email if needed
-                const email = username.includes("@") ? username : username + "@college.edu";
-
-                // Simulate API call (replace with your actual backend)
-                const response = await fetch("/api/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, password, role })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    // ✅ SUCCESS: Set user state and show portal
-                    currentUser = username;
-                    currentRole = role;
-                    
-                    // Save to localStorage
-                    localStorage.setItem('currentUser', JSON.stringify({
-                        username: currentUser,
-                        role: currentRole,
-                        timestamp: Date.now()
-                    }));
-                    
-                    showPortal();
-                } else {
-                    showLoginError(data.message || "Invalid credentials");
-                    resetLoginButton();
-                }
-            } catch (err) {
-                console.error("Login error:", err);
-                showLoginError("Network error. Please try again.");
-                resetLoginButton();
-            }
-        }
-
-        // ✅ SHOW PORTAL - FIXED
+        showPortal();
+    } catch (err) {
+        console.error("Login error:", err);
+        showLoginError(err.message || "Invalid credentials");
+    }
+}
+ // ✅ SHOW PORTAL - FIXED
        function showPortal() {
     // ✅ WAIT for DOM to be ready
     setTimeout(() => {
@@ -252,46 +222,30 @@
             `;
         }
 
-        // ✅ REGISTRATION FUNCTIONS
-        function showRegisterForm() {
-            const form = document.getElementById("registerForm");
-            form.style.display = form.style.display === "block" ? "none" : "block";
-        }
+ // ✅ REGISTRATION FUNCTIONS
+async function registerStudent() {
+    const name = document.getElementById("regName").value.trim();
+    const email = document.getElementById("regEmail").value.trim();
+    const password = document.getElementById("regPassword").value.trim();
 
-        async function registerStudent() {
-            const name = document.getElementById("regName").value.trim();
-            const email = document.getElementById("regEmail").value.trim();
-            const rollNo = document.getElementById("regRollNo").value.trim();
-            const password = document.getElementById("regPassword").value.trim();
+    if (!name || !email || !password) {
+        alert("Please fill all registration fields");
+        return;
+    }
 
-            if (!name || !email || !rollNo || !password) {
-                alert("Please fill all registration fields");
-                return;
-            }
-
-            try {
-                const response = await fetch("/api/register", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name, email, rollNo, password, role: "student" })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    alert("✅ Registration successful! Please login.");
-                    document.getElementById("registerForm").style.display = "none";
-                    document.getElementById("loginForm").reset();
-                } else {
-                    alert("❌ " + (data.message || "Registration failed"));
-                }
-            } catch (err) {
-                alert("Network error. Please try again.");
-            }
-        }
+    try {
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        alert("✅ Registration successful! Please login.");
+        document.getElementById("registerForm").style.display = "none";
+        document.getElementById("loginForm").reset();
+    } catch (err) {
+        console.error(err);
+        alert("❌ Registration failed: " + err.message);
+    }
+}
 
         // ✅ UTILITY FUNCTIONS
-        function resetLoginButton() {
+function resetLoginButton() {
             const loginBtn = document.getElementById("loginBtn");
             if (!loginBtn) return;
             
