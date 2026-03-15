@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Placement Communication Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="firebase.js"></script>
+    <script src="admin.js"></script>
+    <script src="student.js"></script>
+</head>
+
+<body>
+    <div id="app"></div>
+    <div class="login-container" id="loginContainer">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo">🎓</div>
+                <h1>Placement Portal</h1>
+                <p>Connect • Apply • Succeed</p>
+            </div>
+
+            <form id="loginForm">
+                <div class="input-group">
+                    <label for="username">Username / Email</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">👤</span>
+                        <input type="text" id="username" required 
+                               placeholder="Enter your username or email">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">🔒</span>
+                        <input type="password" id="password" required 
+                               placeholder="Enter your password">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="role">Login As</label>
+                    <select id="role" required>
+                        <option value="">Select Role</option>
+                        <option value="student">👨‍🎓 Student</option>
+                        <option value="admin">👨‍💼 Admin / TPO</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="login-btn" id="loginBtn">
+                    <span class="btn-text">🚀 Enter Portal</span>
+                    <span class="btn-loading" style="display: none;">Loading...</span>
+                </button>           
+
+                <button type="button" class="register-btn" onclick="showRegisterForm()">Don't have an account? Register</button>
+
+                <div id="registerForm" class="register-form" style="display:none;">
+                    <h3>👨‍🎓 Student Registration</h3>
+                    <input type="text" id="regName" placeholder="Full Name" >
+                    <input type="email" id="regEmail" placeholder="Email" >
+                    <input type="text" id="regRollNo" placeholder="Roll Number" >
+                    <input type="password" id="regPassword" placeholder="Password">
+                    <button type="button" class="register-btn-final" onclick="registerStudent()">Create Account</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="login-features">
+            <div class="feature">
+                <div class="feature-icon">💼</div>
+                <h4>Live Jobs</h4>
+                <p>Apply to top companies</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">👥</div>
+                <h4>Student Network</h4>
+                <p>Connect with peers</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📢</div>
+                <h4>Announcements</h4>
+                <p>Stay updated always</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Button -->
+    <button class="logout-btn" id="logoutBtn" onclick="logout()" style="display: none;">
+        🚪 Logout
+    </button>
+    <script>
+        // Global state
+        let currentUser = null;
+        // ✅ FIXED: Properly attach form submit handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            loginForm.addEventListener('submit', handleLogin);
+            
+            // Check if already logged in
+            checkAuthState();
+        });
+
+        // 🔥 MAIN LOGIN FUNCTION - FIXED
+        async function handleLogin(event) {
+            event.preventDefault(); // ✅ CRITICAL: Prevent form submission
+            
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const role = document.getElementById("role").value;
+
+            if (!username || !password || !role) {
+                showLoginError("Please fill all fields");
+                return;
+            }
+
+            const loginBtn = document.getElementById("loginBtn");
+            const btnText = loginBtn.querySelector(".btn-text");
+            const btnLoading = loginBtn.querySelector(".btn-loading");
+
+            // Show loading state
+            btnText.style.display = "none";
+            btnLoading.style.display = "inline";
+            loginBtn.disabled = true;
+
+            try {
+                // Convert username to email if needed
+                const email = username.includes("@") ? username : username + "@college.edu";
+
+                // Simulate API call (replace with your actual backend)
+                const response = await fetch("/api/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password, role })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // ✅ SUCCESS: Set user state and show portal
+                    currentUser = username;
+                    currentRole = role;
+                    
+                    // Save to localStorage
+                    localStorage.setItem('currentUser', JSON.stringify({
+                        username: currentUser,
+                        role: currentRole,
+                        timestamp: Date.now()
+                    }));
+                    
+                    showPortal();
+                } else {
+                    showLoginError(data.message || "Invalid credentials");
+                    resetLoginButton();
+                }
+            } catch (err) {
+                console.error("Login error:", err);
+                showLoginError("Network error. Please try again.");
+                resetLoginButton();
+            }
+        }
+
+        // ✅ SHOW PORTAL - FIXED
+       function showPortal() {
+    // ✅ WAIT for DOM to be ready
+    setTimeout(() => {
+        document.getElementById("loginContainer").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        document.getElementById("logoutBtn").style.display = "block";
+        
+        // ✅ Load portals AFTER DOM is visible
+        if (currentRole === "student") {
+            if (typeof loadStudentPortal === 'function') {
+                loadStudentPortal();
+            }
+        } else if (currentRole === "admin") {
+            if (typeof loadAdminPortal === 'function') {
+                loadAdminPortal();
+            }
+        }
+    }, 500); // ✅ 500ms delay fixes timing
+}
+
+        // ✅ STUDENT PORTAL
+        function loadStudentPortal() {
+            document.getElementById('app').innerHTML = `
+                <div class="welcome-message">
+                    <strong>🎓 Welcome ${currentUser}!</strong>
+                    <span onclick="closeWelcome()" style="cursor: pointer;">✕</span>
+                </div>
+                <div class="portal-container">
+                    <h2>👨‍🎓 Student Dashboard</h2>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-top: 32px;">
+                        <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 32px; border-radius: 20px; text-align: center;">
+                            <div style="font-size: 3rem; margin-bottom: 16px;">💼</div>
+                            <h3>Live Job Openings</h3>
+                            <p style="opacity: 0.9;">15+ companies hiring now</p>
+                            <button onclick="viewJobs()" style="background: white; color: #1d4ed8; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; margin-top: 16px; cursor: pointer;">View Jobs</button>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 32px; border-radius: 20px; text-align: center;">
+                            <div style="font-size: 3rem; margin-bottom: 16px;">📋</div>
+                            <h3>My Applications</h3>
+                            <p style="opacity: 0.9;">Track your applications</p>
+                            <button onclick="viewApplications()" style="background: white; color: #059669; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; margin-top: 16px; cursor: pointer;">View Applications</button>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 32px; border-radius: 20px; text-align: center;">
+                            <div style="font-size: 3rem; margin-bottom: 16px;">📢</div>
+                            <h3>Announcements</h3>
+                            <p style="opacity: 0.9;">Latest updates</p>
+                            <button onclick="viewAnnouncements()" style="background: white; color: #d97706; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; margin-top: 16px; cursor: pointer;">View Updates</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ✅ ADMIN PORTAL
+        function loadAdminPortal() {
+            document.getElementById('app').innerHTML = `
+                <div class="welcome-message">
+                    <strong>👨‍💼 Welcome Admin ${currentUser}!</strong>
+                    <span onclick="closeWelcome()" style="cursor: pointer;">✕</span>
+                </div>
+                <div class="portal-container">
+                    <h2>👨‍💼 Admin Dashboard</h2>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-top: 32px;">
+                        <div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; padding: 32px; border-radius: 20px; text-align: center;">
+                        <div style="font-size: 3rem; margin-bottom: 16px;">➕</div>
+                            <h3>Add Companies</h3>
+                            <p style="opacity: 0.9;">Post new job openings</p>
+                            <button onclick="addCompany()" style="background: white; color: #7c3aed; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; margin-top: 16px; cursor: pointer;">Add Company</button>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 32px; border-radius: 20px; text-align: center;">
+                            <div style="font-size: 3rem; margin-bottom: 16px;">📊</div>
+                            <h3>View Applications</h3>
+                            <p style="opacity: 0.9;">All student applications</p>
+                            <button onclick="viewApplications()" style="background: white; color: #dc2626; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; margin-top: 16px; cursor: pointer;">View All</button>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; padding: 32px; border-radius: 20px; text-align: center;">
+                            <div style="font-size: 3rem; margin-bottom: 16px;">📈</div>
+                            <h3>Analytics</h3>
+                            <p style="opacity: 0.9;">Placement statistics</p>
+                            <button onclick="viewAnalytics()" style="background: white; color: #0891b2; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; margin-top: 16px; cursor: pointer;">View Stats</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ✅ REGISTRATION FUNCTIONS
+        function showRegisterForm() {
+            const form = document.getElementById("registerForm");
+            form.style.display = form.style.display === "block" ? "none" : "block";
+        }
+
+        async function registerStudent() {
+            const name = document.getElementById("regName").value.trim();
+            const email = document.getElementById("regEmail").value.trim();
+            const rollNo = document.getElementById("regRollNo").value.trim();
+            const password = document.getElementById("regPassword").value.trim();
+
+            if (!name || !email || !rollNo || !password) {
+                alert("Please fill all registration fields");
+                return;
+            }
+
+            try {
+                const response = await fetch("/api/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, email, rollNo, password, role: "student" })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert("✅ Registration successful! Please login.");
+                    document.getElementById("registerForm").style.display = "none";
+                    document.getElementById("loginForm").reset();
+                } else {
+                    alert("❌ " + (data.message || "Registration failed"));
+                }
+            } catch (err) {
+                alert("Network error. Please try again.");
+            }
+        }
+
+        // ✅ UTILITY FUNCTIONS
+        function resetLoginButton() {
+            const loginBtn = document.getElementById("loginBtn");
+            if (!loginBtn) return;
+            
+            const btnText = loginBtn.querySelector('.btn-text');
+            const btnLoading = loginBtn.querySelector('.btn-loading');
+            
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+            loginBtn.disabled = false;
+        }
+
+        function showLoginError(message) {
+            // Remove existing errors
+            document.querySelectorAll('.login-error').forEach(el => el.remove());
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'login-error';
+            errorDiv.textContent = message;
+            const form = document.getElementById('loginForm');
+            form.insertBefore(errorDiv, form.querySelector('button'));
+            
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        function showWelcomeMessage() {
+            const welcomeDiv = document.querySelector('.welcome-message');
+            if (welcomeDiv) welcomeDiv.remove();
+        }
+
+        function closeWelcome() {
+            document.querySelector('.welcome-message')?.remove();
+        }
+
+        // ✅ AUTH STATE CHECK
+        function checkAuthState() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                const userData = JSON.parse(savedUser);
+                if (Date.now() - userData.timestamp < 24 * 60 * 60 * 1000) { // 24 hours
+                    currentUser = userData.username;
+                    currentRole = userData.role;
+                    showPortal();
+                }
+            }
+        }
+
+        // ✅ LOGOUT FUNCTION - FIXED
+        function logout() {
+            if (!confirm("Are you sure you want to logout?")) return;
+
+            // Clear state
+            localStorage.removeItem('currentUser');
+            
+            // Reset UI
+            document.getElementById("app").innerHTML = "";
+            document.getElementById("app").style.display = "none";
+            document.getElementById("loginContainer").style.display = "flex";
+            document.getElementById("logoutBtn").style.display = "none";
+            document.getElementById("loginForm").reset();
+            document.getElementById("registerForm").style.display = "none";
+            
+            console.log("✅ Logged out successfully");
+        }
+
+        // ✅ DEMO FUNCTIONS
+        function viewJobs() {
+            alert("🔥 Loading live job openings from database!\n\nCompanies: Google, Microsoft, Amazon, TCS, Infosys");
+        }
+
+        function viewApplications() {
+            alert("📋 Loading your applications...\n\nStatus: 3 Applied, 2 Shortlisted, 1 Interview Scheduled");
+        }
+
+        function viewAnnouncements() {
+            alert("📢 Latest Announcements:\n\n• Company visit on 15th Dec\n• Resume workshop on 10th Dec\n• Mock interviews started");
+        }
+
+        function addCompany() {
+            const companyName = prompt("Enter company name:");
+            if (companyName) {
+                alert(`✅ ${companyName} added successfully!\n\nJob posted to all students`);
+            }
+        }
+
+        function viewAnalytics() {
+            alert("📈 Placement Analytics:\n\n• 85% placement rate\n• Average package: 8.5 LPA\n• Top recruiters: Google, Microsoft");
+        }
+
+        // ✅ GLOBAL ERROR HANDLER
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.error);
+            if (e.error.message.includes('login')) {
+                showLoginError('Something went wrong. Please refresh and try again.');
+            }
+        });
+
+        console.log("🚀 Placement Portal Loaded Successfully!");
+        console.log("✅ Form submission fixed - no more page refresh!");
+        console.log("✅ Portals will now load properly for both roles");
+    </script>
+</body>
+</html>
